@@ -55,6 +55,19 @@
     return n + "LDK";
   }
 
+  // 住戸が定量条件(予算/広さ/間取り/築年/駅徒歩)を満たすか（提案とモーダルで共通利用）
+  function listingPassesConds(L, building, conds) {
+    conds = conds || {};
+    building = building || {};
+    var hasLayout = conds.layouts && conds.layouts.length > 0;
+    if (conds.budget && L.price > conds.budget) return false;
+    if (conds.areaMin && (L.sqm == null || L.sqm < conds.areaMin)) return false;
+    if (hasLayout && (!L.layout || conds.layouts.indexOf(layoutCat(L.layout)) < 0)) return false;
+    if (conds.ageMax != null && building.ageYears != null && building.ageYears > conds.ageMax) return false;
+    if (conds.walkMax != null && building.walkMin != null && building.walkMin > conds.walkMax) return false;
+    return true;
+  }
+
   // 住戸の6軸ベクトル（建物5軸 + 住戸の眺望）
   function listingVector(L, building) {
     var s = (building && building.scores) || {};
@@ -76,17 +89,12 @@
     var weights = {}, wsum = 0;
     AXES.forEach(function (a) { weights[a] = userAxes[a] + 10; wsum += weights[a]; });
     if (!wsum) wsum = 1;
-    var hasLayout = conds.layouts && conds.layouts.length > 0;
 
     var pass = [];
     listings.forEach(function (L) {
       var b = mansionById[L.bid] || {};
       // ---- ハード条件（満たさなければ除外）----
-      if (conds.budget && L.price > conds.budget) return;
-      if (conds.areaMin && (L.sqm == null || L.sqm < conds.areaMin)) return;
-      if (hasLayout && (!L.layout || conds.layouts.indexOf(layoutCat(L.layout)) < 0)) return;
-      if (conds.ageMax != null && b.ageYears != null && b.ageYears > conds.ageMax) return;
-      if (conds.walkMax != null && b.walkMin != null && b.walkMin > conds.walkMax) return;
+      if (!listingPassesConds(L, b, conds)) return;
       // ---- ソフト：6軸マッチ度 ----
       var vec = listingVector(L, b);
       var matchRaw = 0;
@@ -132,5 +140,5 @@
     };
   }
 
-  global.WANGAN = { diagnose: diagnose, scoreListings: scoreListings, computeUserAxes: computeUserAxes, classifyType: classifyType, layoutCat: layoutCat, AXES: AXES, TSUBO_PER_SQM: TSUBO_PER_SQM };
+  global.WANGAN = { diagnose: diagnose, scoreListings: scoreListings, listingPassesConds: listingPassesConds, computeUserAxes: computeUserAxes, classifyType: classifyType, layoutCat: layoutCat, AXES: AXES, TSUBO_PER_SQM: TSUBO_PER_SQM };
 })(window);

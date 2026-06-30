@@ -207,3 +207,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;heigh
 .unit .uprice b{display:block;color:var(--bay-d);font-weight:900;font-size:.98rem}
 .unit .uprice span{font-size:.7rem;color:var(--muted)}
 .modal .btn-line{margin-top:14px}
+.utoggle{margin-top:10px;width:100%;background:#eef4fb;border:1px solid var(--line);color:var(--bay-d);
+  font:inherit;font-weight:800;font-size:.85rem;border-radius:12px;padding:11px;cursor:pointer}
+.utoggle:hover{background:#e3eefb}

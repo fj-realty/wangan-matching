@@ -386,20 +386,25 @@ function renderResult() {
 }
 
 /* ---------- 建物の募集中住戸モーダル ---------- */
-function openBuildingModal(bid) {
-  const b = state.mById[bid];
-  if (!b) return;
-  const units = state.listings.filter((L) => L.bid === bid).sort((x, y) => x.price - y.price);
-  track("building_detail", { building: b.name, units: units.length });
-  const facs = ["プール", "ジム", "サウナ", "バー", "コンビニ", "内廊下"].filter((f) => b.facilities && b.facilities[f]);
-  const rows = units.map((L) => `
+function unitRow(L) {
+  return `
     <div class="unit">
       <div class="uinfo">
         <b>${blurFloor(L.floor)}・${blurSqm(L.sqm)}</b>
         <span>${L.layout || "間取り不明"}${L.direction ? "・" + L.direction + "向き" : ""}${L.corner ? "・角部屋" : ""}・🌅${L.viewScore}</span>
       </div>
       <div class="uprice"><b>${fmtMan(L.price)}</b><span>坪${L.askingTsubo}万</span></div>
-    </div>`).join("");
+    </div>`;
+}
+function openBuildingModal(bid) {
+  const b = state.mById[bid];
+  if (!b) return;
+  const conds = (state.result && state.result.conds) || {};
+  const all = state.listings.filter((L) => L.bid === bid).sort((x, y) => x.price - y.price);
+  const matching = all.filter((L) => WANGAN.listingPassesConds(L, b, conds));
+  let showAll = false;
+  track("building_detail", { building: b.name, matching: matching.length, all: all.length });
+  const facs = ["プール", "ジム", "サウナ", "バー", "コンビニ", "内廊下"].filter((f) => b.facilities && b.facilities[f]);
   const m = el(`<div class="modal-ov" id="bmodal">
     <div class="modal" role="dialog" aria-label="${b.name} の募集中住戸">
       <button class="modal-x" aria-label="閉じる">×</button>
@@ -410,18 +415,34 @@ function openBuildingModal(bid) {
         ${b.trendPct != null ? `<span class="chip ${b.trendPct >= 0 ? "up" : "down"}">📈 ${b.trendPct >= 0 ? "+" : ""}${b.trendPct}%</span>` : ""}
         ${facs.map((f) => `<span class="chip fac">${f === "バー" ? "ラウンジ/バー" : f}</span>`).join("")}
       </div>
-      <div class="modal-sub">現在募集中 <b>${units.length}</b> 戸 <small>（安い順・階数/面積はぼかし表示）</small></div>
-      <div class="unit-list">${rows || '<div class="rest">現在この建物の募集はありません。</div>'}</div>
+      <div class="modal-sub" id="uSub"></div>
+      <div class="unit-list" id="uList"></div>
+      <button class="utoggle" id="uToggle"></button>
       <p class="lock-note" style="margin-top:10px">※ 部屋番号・正確な階数/面積・最新の空室状況はLINEでご案内します</p>
       <button class="btn btn-line" id="mLine">💬 この建物について相談する（LINE）</button>
     </div>
   </div>`);
+  const renderList = () => {
+    const arr = showAll ? all : matching;
+    m.querySelector("#uList").innerHTML = arr.length ? arr.map(unitRow).join("")
+      : '<div class="rest" style="padding:10px 4px">ご希望条件に合う募集中はありません。下の「条件外も見る」で全戸を確認できます。</div>';
+    m.querySelector("#uSub").innerHTML = showAll
+      ? `この建物の募集中 <b>${all.length}</b> 戸 <small>（安い順・階/面積ぼかし）</small>`
+      : `ご希望条件に合う募集中 <b>${matching.length}</b> 戸 <small>（全${all.length}戸中・安い順）</small>`;
+    const tg = m.querySelector("#uToggle");
+    if (all.length > matching.length) {
+      tg.style.display = "";
+      tg.textContent = showAll ? `↩ 条件に合う${matching.length}戸だけ表示` : `条件以外も含めて全${all.length}戸を見る ▾`;
+    } else { tg.style.display = "none"; }
+  };
   document.body.appendChild(m);
   document.body.style.overflow = "hidden";
   const close = () => { m.remove(); document.body.style.overflow = ""; };
   m.onclick = (e) => { if (e.target === m) close(); };
   m.querySelector(".modal-x").onclick = close;
+  m.querySelector("#uToggle").onclick = () => { showAll = !showAll; renderList(); };
   m.querySelector("#mLine").onclick = () => { track("line_click", { from: "modal", building: b.name }); window.open(CONFIG.LINE_URL, "_blank"); };
+  renderList();
 }
 
 function shareX() {
