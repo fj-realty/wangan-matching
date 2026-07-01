@@ -124,11 +124,44 @@ function selectField(label, optsArr, curVal, id) {
   const opts = optsArr.map((o) => `<option value="${o.v === null ? "" : o.v}" ${String(o.v) === String(curVal) || (o.v === null && curVal == null) ? "selected" : ""}>${o.l}</option>`).join("");
   return `<div class="field"><div class="flabel"><b>${label}</b></div><select class="fselect" id="${id}">${opts}</select></div>`;
 }
-function renderStep1() {
-  const c = state.conds;
-  const research = state.researchMode;
+function conditionFieldsHTML(c) {
   const chips = LAYOUT_OPTS.map((o) =>
     `<button type="button" class="lchip ${c.layouts.indexOf(o.v) >= 0 ? "on" : ""}" data-v="${o.v}">${o.l}</button>`).join("");
+  return `
+    ${selectField("ご予算（上限）", BUDGET_OPTS, c.budget, "fBudget")}
+    ${selectField("広さ", AREA_OPTS, c.areaMin, "fArea")}
+    <div class="field">
+      <div class="flabel"><b>間取り</b><span class="fhint">複数選択OK／未選択=すべて</span></div>
+      <div class="lchips" id="fLayouts">${chips}</div>
+    </div>
+    ${selectField("築年数", AGE_OPTS, c.ageMax, "fAge")}
+    ${selectField("駅徒歩", WALK_OPTS, c.walkMax, "fWalk")}
+    <div class="budget-box" id="candBox"></div>`;
+}
+function wireConditionFields() {
+  const c = state.conds;
+  const upd = () => {
+    const box = document.getElementById("candBox");
+    if (!box) return;
+    const n = countCandidates(c);
+    box.innerHTML =
+      `<div class="br"><span>条件に合う「募集中」の住戸</span><b>${n}<small> / ${state.listings.length}件</small></b></div>` +
+      `<div class="hint">${n === 0 ? "条件が厳しすぎます。いずれかをゆるめてください。" : "この中から性格診断のマッチ度でTOP3を選びます。"}</div>`;
+  };
+  const parseSel = (v) => (v === "" ? null : Number(v));
+  const bind = (id, key) => { const e = document.getElementById(id); if (e) e.onchange = (ev) => { c[key] = parseSel(ev.target.value); upd(); }; };
+  bind("fBudget", "budget"); bind("fArea", "areaMin"); bind("fAge", "ageMax"); bind("fWalk", "walkMax");
+  document.querySelectorAll("#fLayouts .lchip").forEach((b) => {
+    b.onclick = () => {
+      const v = b.dataset.v, i = c.layouts.indexOf(v);
+      if (i >= 0) c.layouts.splice(i, 1); else c.layouts.push(v);
+      b.classList.toggle("on"); upd();
+    };
+  });
+  upd();
+}
+function renderStep1() {
+  const research = state.researchMode;
   $app.innerHTML = `
     <section class="fade">
       <div class="step-head"><span class="step-tag">${research ? "条件を変更" : "STEP 1 / 3"}</span><span class="badge">${research ? "再検索" : "希望条件"}</span></div>
@@ -136,43 +169,15 @@ function renderStep1() {
       <div class="card">
         <h2 class="sec">まずは、あなたの条件を</h2>
         <p class="sub">いま<b>募集中の住戸</b>から、条件に合うものを探します。${research ? "性格診断の回答はそのまま使います。" : ""}</p>
-        ${selectField("ご予算（上限）", BUDGET_OPTS, c.budget, "fBudget")}
-        ${selectField("広さ", AREA_OPTS, c.areaMin, "fArea")}
-        <div class="field">
-          <div class="flabel"><b>間取り</b><span class="fhint">複数選択OK／未選択=すべて</span></div>
-          <div class="lchips" id="fLayouts">${chips}</div>
-        </div>
-        ${selectField("築年数", AGE_OPTS, c.ageMax, "fAge")}
-        ${selectField("駅徒歩", WALK_OPTS, c.walkMax, "fWalk")}
-        <div class="budget-box" id="candBox"></div>
+        ${conditionFieldsHTML(state.conds)}
         <button class="btn btn-primary" id="next">${research ? "この条件で再検索する →" : "価値観診断にすすむ →"}</button>
       </div>
     </section>`;
-
-  const upd = () => {
-    const n = countCandidates(state.conds);
-    document.getElementById("candBox").innerHTML =
-      `<div class="br"><span>条件に合う「募集中」の住戸</span><b>${n}<small> / ${state.listings.length}件</small></b></div>` +
-      `<div class="hint">${n === 0 ? "条件が厳しすぎます。いずれかをゆるめてください。" : "性格診断の結果でこの中からTOP3を選びます。"}</div>`;
-  };
-  const parseSel = (v) => (v === "" ? null : Number(v));
-  document.getElementById("fBudget").onchange = (e) => { c.budget = parseSel(e.target.value); upd(); };
-  document.getElementById("fArea").onchange = (e) => { c.areaMin = parseSel(e.target.value); upd(); };
-  document.getElementById("fAge").onchange = (e) => { c.ageMax = parseSel(e.target.value); upd(); };
-  document.getElementById("fWalk").onchange = (e) => { c.walkMax = parseSel(e.target.value); upd(); };
-  $app.querySelectorAll(".lchip").forEach((b) => {
-    b.onclick = () => {
-      const v = b.dataset.v, i = c.layouts.indexOf(v);
-      if (i >= 0) c.layouts.splice(i, 1); else c.layouts.push(v);
-      b.classList.toggle("on");
-      upd();
-    };
-  });
+  wireConditionFields();
   document.getElementById("next").onclick = () => {
     if (research) { submit(); }
     else { state.qIndex = 0; go("quiz"); }
   };
-  upd();
 }
 
 /* ---------- STEP2 価値観診断 ---------- */
@@ -354,27 +359,34 @@ function renderResult() {
       <p class="lock-note">📊 坪単価＝成約のある棟は実成約の単純平均、無い棟は現在募集の中央値（出所を表記）。各スコアは実データに基づく算出値です。</p>
       <p class="lock-note">🔒 部屋番号・正確な階数/面積・最新の空室状況はLINEでご案内します</p>
 
+      <div class="section-title">🔧 条件を変えて再検索</div>
+      <div class="card" id="condPanel">
+        <p class="sub" style="margin-bottom:14px">性格診断の回答はそのまま、条件だけ変えてすぐ再検索できます。</p>
+        ${conditionFieldsHTML(r.conds)}
+        <button class="btn btn-primary" id="reSearchInline">この条件で再検索する</button>
+      </div>
+
       <div class="card cta-card">
         <h3>気になる住戸、見つかりましたか？</h3>
         <p>専任アドバイザーが、あなたのタイプと条件に合わせて<br>具体的な部屋・価格をご提案します。</p>
         <button class="btn btn-line" id="line">💬 この条件で相談する（LINE）</button>
         <div class="share-row">
           <button class="btn btn-x btn-sm" id="share">𝕏 結果をシェア</button>
-          <button class="btn btn-ghost btn-sm" id="reSearch">🔧 条件だけ変えて再検索</button>
+          <button class="btn btn-ghost btn-sm" id="restart">最初からやり直す</button>
         </div>
-        <button class="btn btn-ghost btn-sm" id="restart" style="margin-top:8px;width:100%">最初からやり直す</button>
       </div>
     </section>`;
 
   const loosen = document.getElementById("loosen");
-  if (loosen) loosen.onclick = () => { state.researchMode = true; go("step1"); };
+  if (loosen) loosen.onclick = () => { const p = document.getElementById("condPanel"); if (p) p.scrollIntoView({ behavior: "smooth", block: "start" }); };
   document.getElementById("line").onclick = () => {
     const url = r.lineUrl || CONFIG.LINE_URL || "#";
     track("line_click", { type: r.type && r.type.name, top: r.matches[0] && r.matches[0].listing.name });
     window.open(url, "_blank");
   };
   document.getElementById("share").onclick = shareX;
-  document.getElementById("reSearch").onclick = () => { state.researchMode = true; go("step1"); };
+  wireConditionFields();
+  document.getElementById("reSearchInline").onclick = () => submit();
   document.getElementById("restart").onclick = () => {
     state.answers = {}; state.qIndex = 0; state.researchMode = false;
     state.conds = { budget: 15000, areaMin: 50, layouts: [], ageMax: null, walkMax: null };
