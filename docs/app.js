@@ -82,6 +82,14 @@ function fmtMan(man) {
 }
 function blurFloor(f) { if (!f) return "階数不明"; if (f < 10) return "10階未満"; return Math.floor(f / 10) * 10 + "階台"; }
 function blurSqm(s) { if (!s) return ""; return Math.floor(s / 10) * 10 + "㎡台"; }
+// 募集坪単価 vs 建物の成約相場 → 相場比バッジ（成約相場がある建物のみ）
+function valueTag(asking, market, source) {
+  if (!asking || !market || source !== "成約") return "";
+  const d = Math.round((asking - market) / market * 100);
+  if (d <= 0) return `<span class="chip vgood">相場以下 ${d}%</span>`;
+  if (d <= 15) return `<span class="chip vok">ほぼ相場 +${d}%</span>`;
+  return `<span class="chip vhigh">相場より高め +${d}%</span>`;
+}
 function el(html) { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstChild; }
 function go(screen) { state.screen = screen; render(); window.scrollTo({ top: 0, behavior: "smooth" }); }
 function track(ev, params) { try { if (window.gtag) window.gtag("event", ev, params || {}); } catch (e) {} }
@@ -302,7 +310,6 @@ function renderResult() {
     : r.matches.map((m, idx) => {
       const L = m.listing, b = m.building || {};
       const facs = ["プール", "ジム", "サウナ", "バー", "コンビニ", "内廊下"].filter((f) => b.facilities && b.facilities[f]);
-      const srcLabel = b.tsuboSource === "成約" ? "成約" : "募集";
       return `
         <div class="rank rank-click" data-bid="${L.bid}">
           <div class="rthumb">
@@ -318,8 +325,9 @@ function renderResult() {
               <span class="chip">${blurFloor(L.floor)}・${blurSqm(L.sqm)}${L.layout ? "・" + L.layout : ""}${L.direction ? "・" + L.direction + "向き" : ""}${L.corner ? "・角部屋" : ""}</span>
             </div>
             <div class="chips">
-              <span class="chip">坪単価 ${L.askingTsubo}万</span>
-              ${b.marketTsubo ? `<span class="chip">市場 ${b.marketTsubo}万(${srcLabel})</span>` : ""}
+              <span class="chip price">募集 ${L.askingTsubo}万/坪</span>
+              ${b.marketTsubo ? `<span class="chip">${b.tsuboSource === "成約" ? "成約相場 " + b.marketTsubo + "万/坪" : "参考 " + b.marketTsubo + "万/坪(募集)"}</span>` : ""}
+              ${valueTag(L.askingTsubo, b.marketTsubo, b.tsuboSource)}
               ${b.trendPct != null ? `<span class="chip ${b.trendPct >= 0 ? "up" : "down"}">📈 ${b.trendPct >= 0 ? "+" : ""}${b.trendPct}%</span>` : ""}
               <span class="chip fac">🌅 眺望 ${L.viewScore}</span>
             </div>
@@ -356,7 +364,7 @@ function renderResult() {
         <div><span>条件に合う募集中</span><b>${r.candidateCount}<small>/${r.totalListings}件</small></b></div>
       </div>
       <div id="ranks">${ranksHtml}</div>
-      <p class="lock-note">📊 坪単価＝成約のある棟は実成約の単純平均、無い棟は現在募集の中央値（出所を表記）。各スコアは実データに基づく算出値です。</p>
+      <p class="lock-note">📊「成約相場」＝実際に売れた坪単価の直近3ヶ月平均（湾岸タワマンDB・月次更新）／「募集」＝現在の売り出し坪単価。相場比はその差。各スコアは実データに基づく算出値です。</p>
       <p class="lock-note">🔒 部屋番号・正確な階数/面積・最新の空室状況はLINEでご案内します</p>
 
       <div class="section-title">🔧 条件を変えて再検索</div>
@@ -398,12 +406,14 @@ function renderResult() {
 }
 
 /* ---------- 建物の募集中住戸モーダル ---------- */
-function unitRow(L) {
+function unitRow(L, b) {
+  const tag = valueTag(L.askingTsubo, b && b.marketTsubo, b && b.tsuboSource);
   return `
     <div class="unit">
       <div class="uinfo">
         <b>${blurFloor(L.floor)}・${blurSqm(L.sqm)}</b>
         <span>${L.layout || "間取り不明"}${L.direction ? "・" + L.direction + "向き" : ""}${L.corner ? "・角部屋" : ""}・🌅${L.viewScore}</span>
+        ${tag}
       </div>
       <div class="uprice"><b>${fmtMan(L.price)}</b><span>坪${L.askingTsubo}万</span></div>
     </div>`;
@@ -436,7 +446,7 @@ function openBuildingModal(bid) {
   </div>`);
   const renderList = () => {
     const arr = showAll ? all : matching;
-    m.querySelector("#uList").innerHTML = arr.length ? arr.map(unitRow).join("")
+    m.querySelector("#uList").innerHTML = arr.length ? arr.map((L) => unitRow(L, b)).join("")
       : '<div class="rest" style="padding:10px 4px">ご希望条件に合う募集中はありません。下の「条件外も見る」で全戸を確認できます。</div>';
     m.querySelector("#uSub").innerHTML = showAll
       ? `この建物の募集中 <b>${all.length}</b> 戸 <small>（安い順・階/面積ぼかし）</small>`

@@ -15,7 +15,7 @@ jobs:
           python-version: "3.12"
       - name: Rebuild data (募集DB ver2 → mansions.json / listings.json)
         run: |
-          rm -f data/raw/spec_master.xlsx
+          rm -f data/raw/transactions.csv data/raw/spec_master.xlsx
           python3 tools/build_data_v2.py
       - name: Commit if changed
         run: |

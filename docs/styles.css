@@ -210,3 +210,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;heigh
 .utoggle{margin-top:10px;width:100%;background:#eef4fb;border:1px solid var(--line);color:var(--bay-d);
   font:inherit;font-weight:800;font-size:.85rem;border-radius:12px;padding:11px;cursor:pointer}
 .utoggle:hover{background:#e3eefb}
+/* 相場比バッジ */
+.chip.vgood{background:#e3f5ec;color:#0a7a47;border-color:#c7ead7;font-weight:800}
+.chip.vok{background:#eef3f9;color:#4a5a73;border-color:var(--line);font-weight:700}
+.chip.vhigh{background:#fdeede;color:#a85a17;border-color:#f5dcbb;font-weight:800}
+.unit .uinfo .chip{margin-top:5px;display:inline-block}

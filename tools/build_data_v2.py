@@ -119,6 +119,42 @@ def load_seiyaku():
     return out
 
 
+def load_old_market():
+    """旧・湾岸タワマンDB(成約5,843件/月次更新)から棟ごとの成約相場を算出。
+    坪単価＝直近3ヶ月の成約坪単価の移動平均(1取引1票・単純平均)。成約が少ない棟は窓を6→12→24ヶ月へ自動拡大。値上がり率(資産性)も算出。"""
+    rows = base.load_tx_rows()  # 旧DBの成約CSV（先頭2行はヘッダ）
+    per = defaultdict(list)
+    max_ym = 0
+    for r in rows:
+        name = (r[base.C_NAME] or "").strip()
+        if not name:
+            continue
+        tsubo = base.to_int(r[base.C_TSUBO])
+        if tsubo is None or tsubo < 80 or tsubo > 2000:
+            continue
+        ym = base.ym_of(r[base.C_DATE])
+        y = base.year_of(r[base.C_DATE])
+        per[keyname(name)].append((y, ym, tsubo, None))
+        if ym:
+            max_ym = max(max_ym, ym)
+    out = {}
+    for k, rec in per.items():
+        if len(rec) < 5:  # 取引が極端に少ない棟は相場として不採用（募集で代替）
+            continue
+        tsubo_now, win_months, tx_in_win = base.moving_avg_price(rec, max_ym)
+        years = [y for y, _, _, _ in rec if y]
+        trend = None
+        if years:
+            y_min, y_max = min(years), max(years)
+            if (y_max - y_min) >= 3:
+                early = [t for y, _, t, _ in rec if y <= y_min + 1]
+                late = [t for y, _, t, _ in rec if y >= y_max - 1]
+                if early and late and statistics.median(early):
+                    trend = round((statistics.median(late) / statistics.median(early) - 1) * 100, 1)
+        out[k] = {"marketTsubo": tsubo_now, "windowMonths": win_months, "txInWindow": tx_in_win, "txCount": len(rec), "trendPct": trend}
+    return out, max_ym
+
+
 # ---------------------------------------------------------------- 募集マスタ → 現在募集中の住戸
 def parse_listing(row, date_cols, latest_col):
     price = to_man(row[latest_col]) if len(row) > latest_col else None
@@ -205,12 +241,13 @@ def view_score(floor, total_floors):
 
 # ---------------------------------------------------------------- 構築
 def build():
-    # 強名寄せでスペックを読む（base.read_spec を流用しつつキーを強normへ）
-    base._fetch(base.SPEC_XLSX_URL, base.SPEC_XLSX, min_bytes=20000)
-    base.norm = keyname  # ← read_spec のキー生成を強normへ差し替え
+    # 旧成約DB(TX)＋従DBスペックxlsx を取得（読み取り専用）
+    base.ensure_files(force=False)
+    base.norm = keyname  # ← read_spec/名寄せ のキー生成を強normへ差し替え
     spec_map = base.read_spec()
 
-    market = load_seiyaku()
+    old_market, _old_ym = load_old_market()   # 旧DB(成約5,843件): 3ヶ月移動平均＝相場のメイン
+    new_market = load_seiyaku()               # 新DB成約履歴: 単純平均＝補完
     listings, per_area = load_listings()
 
     # 募集中の棟ごとに住戸を束ねる
@@ -225,21 +262,27 @@ def build():
         area = Counter(u["area"] for u in units).most_common(1)[0][0]
         sp = spec_map.get(bkey, {})
         fac = sp.get("facilities", {k: False for k in base.FAC_KEYS})
-        mk = market.get(bkey, {})
+        mk_old = old_market.get(bkey, {})
+        mk_new = new_market.get(bkey, {})
         # 総階数：スペックが妥当ならそれを、壊れ/欠落時は募集の最高階で代替（眺望算出と表示に使用）
         max_floor = max((u["floor"] for u in units if u["floor"]), default=0)
         sp_floors = sp.get("floors")
         total_floors = sp_floors if (sp_floors and sp_floors >= max_floor) else (max_floor or None)
         floors_by_key[bkey] = total_floors
 
-        # 市場坪単価：成約があれば成約ベース、無ければ募集（現在価格）の中央値で代替
+        # 成約相場：旧DB(3ヶ月移動平均)を最優先→新DB成約履歴→無ければ現在募集の中央値で代替
         asking_tsubos = [round(u["price"] / (u["sqm"] / TSUBO)) for u in units if u["sqm"]]
-        if mk.get("marketTsubo"):
-            tsubo_price, tsubo_source = mk["marketTsubo"], "成約"
+        if mk_old.get("marketTsubo"):
+            tsubo_price, tsubo_source = mk_old["marketTsubo"], "成約"
+            trend, tx_count, win_months = mk_old.get("trendPct"), mk_old.get("txCount", 0), mk_old.get("windowMonths")
+        elif mk_new.get("marketTsubo"):
+            tsubo_price, tsubo_source = mk_new["marketTsubo"], "成約"
+            trend, tx_count, win_months = mk_new.get("trendPct"), mk_new.get("txCount", 0), None
         elif asking_tsubos:
             tsubo_price, tsubo_source = round(statistics.median(asking_tsubos)), "募集"
+            trend, tx_count, win_months = None, 0, None
         else:
-            tsubo_price, tsubo_source = None, None
+            tsubo_price, tsubo_source, trend, tx_count, win_months = None, None, None, 0, None
 
         sqms = [u["sqm"] for u in units if u["sqm"]]
         median_sqm = round(statistics.median(sqms), 1) if sqms else None
@@ -249,14 +292,13 @@ def build():
         fac_score = base.score_fac(fac)
         loc_score = base.score_loc(area, sp.get("walkMin"))
         liv_score = base.score_liv(sp.get("builtYear"), sp.get("seismic"), fac, fac_score)
-        trend = mk.get("trendPct")
         asset_score = base.clamp(55 + trend * 0.45) if trend is not None else base.clamp(base.AREA_BASE.get(area, base.DEFAULT_BASE)["asset"])
         size_score = base.clamp(38 + ((median_sqm or 60) - 45) * 1.0)
 
         mansions.append({
             "key": bkey, "name": rep_name, "area": area,
-            "marketTsubo": tsubo_price, "tsuboSource": tsubo_source,
-            "trendPct": trend, "txCount": mk.get("txCount", 0),
+            "marketTsubo": tsubo_price, "tsuboSource": tsubo_source, "tsuboWindowMonths": win_months,
+            "trendPct": trend, "txCount": tx_count,
             "listingCount": len(units), "medianSqm": median_sqm, "repLayout": rep_layout,
             "station": sp.get("station"), "walkMin": sp.get("walkMin"),
             "builtYear": sp.get("builtYear"), "ageYears": sp.get("ageYears"),
@@ -292,7 +334,7 @@ def build():
             "direction": L["direction"], "corner": L["corner"],
             "viewScore": view_score(L["floor"], tf),
         })
-    return mansions, out_listings, per_area, spec_map, market
+    return mansions, out_listings, per_area, spec_map, old_market
 
 
 def _now():
@@ -302,9 +344,9 @@ def _now():
 def rebuild_and_save():
     mansions, listings, per_area, spec_map, market = build()
     mpay = {
-        "_note": "建物単位。坪単価=成約履歴の成約坪単価の単純平均(新方式)。成約が無い棟はtsuboSource='募集'で現在募集の中央値。"
+        "_note": "建物単位。成約相場=旧・湾岸タワマンDB(成約5,843件/月次更新)の直近3ヶ月移動平均を最優先→新DB成約履歴→無ければ現在募集の中央値(tsuboSource=募集)。"
                  "駅徒歩/築年/耐震/総戸数/総階数/施設は従DB(スペック)。5軸スコアは実データ算出（眺望は住戸ごとlistings側）。",
-        "source": "real", "priceMethod": "成約坪単価の単純平均（毎月末データ・全期間／成約が無い棟は募集坪単価の中央値）",
+        "source": "real", "priceMethod": "成約相場=直近3ヶ月の成約坪単価の移動平均(1取引1票・成約僅少は窓を6→12→24ヶ月へ拡大)／成約が無い棟のみ募集坪単価の中央値",
         "generatedAt": _now(), "count": len(mansions), "mansions": mansions,
     }
     lpay = {
