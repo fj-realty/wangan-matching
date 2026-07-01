@@ -1,7 +1,7 @@
-name: monthly-data-refresh
+name: weekly-data-refresh
 on:
   schedule:
-    - cron: "0 0 1 * *"
+    - cron: "0 21 * * 0"   # 毎週月曜 06:00 JST（=日曜21:00 UTC）。募集データは週次更新のため
   workflow_dispatch: {}
 permissions:
   contents: write
@@ -13,16 +13,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Rebuild data
+      - name: Rebuild data (募集DB ver2 → mansions.json / listings.json)
         run: |
-          rm -f data/raw/transactions.csv data/raw/spec_master.xlsx
-          python3 tools/build_mansions_from_db.py
+          rm -f data/raw/spec_master.xlsx
+          python3 tools/build_data_v2.py
       - name: Commit if changed
         run: |
-          if [ -n "$(git status --porcelain docs/data/mansions.json)" ]; then
+          if [ -n "$(git status --porcelain docs/data/mansions.json docs/data/listings.json)" ]; then
             git config user.name "github-actions"
             git config user.email "actions@github.com"
-            git add docs/data/mansions.json
-            git commit -m "chore: monthly data refresh (auto)"
+            git add docs/data/mansions.json docs/data/listings.json
+            git commit -m "chore: weekly data refresh (auto)"
             git push
           fi

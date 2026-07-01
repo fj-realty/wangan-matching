@@ -1,11 +1,12 @@
 {
-  "_comment": "STEP2 価値観診断。各設問は5軸(asset/liv/fac/loc/size)のいずれかに紐づく。rev=true は逆転項目（回答スコアを反転して集計）。回答は scale の value(2,1,0,-1,-2)。",
+  "_comment": "STEP2 価値観診断。各設問は6軸(asset/liv/fac/loc/size/view)のいずれかに紐づく。rev=true は逆転項目（回答スコアを反転して集計）。回答は scale の value(2,1,0,-1,-2)。view=眺望(高層・方角・日当たり・抜け感)。",
   "axes": [
     { "key": "liv",   "label": "居住性",     "emoji": "🛋️" },
     { "key": "asset", "label": "資産性",     "emoji": "💴" },
     { "key": "fac",   "label": "施設充実度", "emoji": "🏊" },
     { "key": "loc",   "label": "立地",       "emoji": "🚄" },
-    { "key": "size",  "label": "広さ",       "emoji": "📐" }
+    { "key": "size",  "label": "広さ",       "emoji": "📐" },
+    { "key": "view",  "label": "眺望",       "emoji": "🌅" }
   ],
   "scale": [
     { "value": 2,  "label": "強くそう思う" },
@@ -21,7 +22,7 @@
     { "id": 4,  "axis": "asset", "rev": true,  "text": "気に入った家なら、将来値下がりしても気にしない" },
 
     { "id": 5,  "axis": "liv",   "rev": false, "text": "毎日の暮らしやすさ・室内の快適さが何より大事だ" },
-    { "id": 6,  "axis": "liv",   "rev": false, "text": "日当たり・眺望・静かさには徹底的にこだわりたい" },
+    { "id": 6,  "axis": "liv",   "rev": false, "text": "風通し・静かさ・水まわりの使い勝手には徹底的にこだわりたい" },
     { "id": 7,  "axis": "liv",   "rev": false, "text": "新しくて設備が充実した部屋に住みたい" },
     { "id": 8,  "axis": "liv",   "rev": true,  "text": "多少古くても、安ければ住み心地は気にならない" },
 
@@ -38,6 +39,11 @@
     { "id": 17, "axis": "size",  "rev": false, "text": "とにかく広い家に住みたい" },
     { "id": 18, "axis": "size",  "rev": false, "text": "書斎や収納など、部屋数は多いほどよい" },
     { "id": 19, "axis": "size",  "rev": false, "text": "将来の家族構成を考えて広さに余裕を持ちたい" },
-    { "id": 20, "axis": "size",  "rev": true,  "text": "狭くても、コンパクトに暮らせれば十分だ" }
+    { "id": 20, "axis": "size",  "rev": true,  "text": "狭くても、コンパクトに暮らせれば十分だ" },
+
+    { "id": 21, "axis": "view",  "rev": false, "text": "窓からの眺望（海・運河・夜景・抜け感）は住まいの満足度を大きく左右する" },
+    { "id": 22, "axis": "view",  "rev": false, "text": "同じ広さ・価格なら、迷わず高層階を選びたい" },
+    { "id": 23, "axis": "view",  "rev": false, "text": "日当たりや方角（南向きなど）には強くこだわりたい" },
+    { "id": 24, "axis": "view",  "rev": true,  "text": "眺望や階数にはこだわらない。低層階でも気にならない" }
   ]
 }

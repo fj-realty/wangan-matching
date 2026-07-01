@@ -171,3 +171,42 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;heigh
 @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
 @media(min-width:480px){ .hero h1{font-size:3rem} .hero-icon{height:228px} }
+
+/* ===== v2: セレクト／間取りチップ／6軸レジェンド ===== */
+.fselect{width:100%;font:inherit;font-size:1rem;font-weight:700;color:var(--ink);background:#f4f8fd;
+  border:1.5px solid var(--line);border-radius:14px;padding:13px 14px;cursor:pointer}
+.fselect:focus{outline:none;border-color:var(--bay-l)}
+.fhint{font-size:.72rem;color:var(--muted);font-weight:600}
+.lchips{display:flex;flex-wrap:wrap;gap:8px}
+.lchip{font:inherit;font-weight:700;font-size:.9rem;background:#f4f8fd;border:1.5px solid var(--line);
+  color:var(--ink);border-radius:999px;padding:9px 16px;cursor:pointer;transition:.15s}
+.lchip:hover{background:#e9f2fb}
+.lchip.on{background:var(--bay-grad);border-color:transparent;color:#fff;box-shadow:0 6px 16px rgba(20,99,191,.28)}
+/* 6軸に対応（5列→3列×2段） */
+.axis-legend{grid-template-columns:repeat(3,1fr);gap:10px 6px;margin-top:10px}
+
+/* クリック可能カード＆建物モーダル */
+.rank-click{cursor:pointer;transition:transform .12s ease,box-shadow .2s ease}
+.rank-click:hover{transform:translateY(-2px);box-shadow:0 16px 32px rgba(18,60,110,.16)}
+.tap-hint{font-size:.78rem;color:var(--bay-d);font-weight:800;margin-top:8px}
+.modal-ov{position:fixed;inset:0;z-index:100;background:rgba(15,40,80,.55);display:flex;align-items:flex-end;justify-content:center;animation:fade .2s}
+.modal{background:#fff;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;border-radius:22px 22px 0 0;
+  padding:22px 18px 24px;position:relative;box-shadow:0 -10px 44px rgba(18,60,110,.3)}
+@media(min-width:480px){ .modal-ov{align-items:center} .modal{border-radius:22px} }
+.modal-x{position:absolute;top:12px;right:14px;background:#eef4fb;border:1px solid var(--line);width:34px;height:34px;
+  border-radius:50%;font-size:1.2rem;line-height:1;cursor:pointer;color:var(--muted)}
+.modal-sub{font-weight:800;color:var(--navy);margin:16px 0 8px;font-size:.95rem}
+.modal-sub b{color:var(--bay);font-size:1.15rem}
+.modal-sub small{font-weight:600;color:var(--muted);font-size:.74rem}
+.unit-list{display:flex;flex-direction:column;gap:8px;max-height:48vh;overflow-y:auto}
+.unit{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#f6f9fd;border:1px solid var(--line);border-radius:12px;padding:11px 13px}
+.unit .uinfo{min-width:0}
+.unit .uinfo b{display:block;font-size:.92rem;color:var(--navy);font-weight:800}
+.unit .uinfo span{font-size:.72rem;color:var(--muted)}
+.unit .uprice{text-align:right;flex:0 0 auto}
+.unit .uprice b{display:block;color:var(--bay-d);font-weight:900;font-size:.98rem}
+.unit .uprice span{font-size:.7rem;color:var(--muted)}
+.modal .btn-line{margin-top:14px}
+.utoggle{margin-top:10px;width:100%;background:#eef4fb;border:1px solid var(--line);color:var(--bay-d);
+  font:inherit;font-weight:800;font-size:.85rem;border-radius:12px;padding:11px;cursor:pointer}
+.utoggle:hover{background:#e3eefb}
